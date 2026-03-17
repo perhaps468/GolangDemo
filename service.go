@@ -35,7 +35,7 @@ func (this *Server) Start() {
 			fmt.Println("服务器出错了：%s,继续下一个", err)
 			continue
 		}
+		//go handle启动
 		go this.hadle(conn)
 	}
-	//go handle启动
 }
