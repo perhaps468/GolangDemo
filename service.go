@@ -2,11 +2,11 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"net"
 	"sync"
 )
 
-// user(stuct,new+lisent)、Sevice(stuct(map,chan,mapLock),new,start(go listenMsg),handle(onlinemap,send),listendMsg,)
 type Server struct {
 	Ip        string
 	Port      int
@@ -34,6 +34,10 @@ func (this *Server) LisentMsg() {
 		this.mapLock.RUnlock()
 	}
 }
+func (this *Server) BroadCast(user *User, msg string) {
+	sendMsg := "[" + user.Addr + "]" + user.Name + msg
+	this.c <- sendMsg
+}
 func (this *Server) hadle(conn net.Conn) {
 	// fmt.Println("链接建立成功")
 	user := NewUser(conn)
@@ -43,8 +47,23 @@ func (this *Server) hadle(conn net.Conn) {
 	this.mapLock.Unlock()
 
 	//发送msg到chan
-	sendMsg := "[" + user.Addr + "]" + user.Name + ":online"
-	this.c <- sendMsg
+	this.BroadCast(user, "上线")
+	go func() {
+		buf := make([]byte, 4096)
+		for {
+			n, err := conn.Read(buf)
+			if n == 0 {
+				this.BroadCast(user, "下线")
+				return
+			}
+			if err != nil && err != io.EOF {
+				fmt.Println("Conn Read err", err)
+				return
+			}
+			msg := string(buf[:n-1])
+			this.BroadCast(user, msg)
+		}
+	}()
 	select {} //让当前协程 永久阻塞、不退出！让他发送完自己的上线也能继续听别人的上线
 }
 func (this *Server) Start() {
