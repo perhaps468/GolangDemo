@@ -40,20 +40,14 @@ func (this *Server) BroadCast(user *User, msg string) {
 }
 func (this *Server) hadle(conn net.Conn) {
 	// fmt.Println("链接建立成功")
-	user := NewUser(conn)
-
-	this.mapLock.Lock()
-	this.OnlineMap[user.Name] = user
-	this.mapLock.Unlock()
-
-	//发送msg到chan
-	this.BroadCast(user, "上线")
+	user := NewUser(conn, this)
+	user.Online()
 	go func() {
 		buf := make([]byte, 4096)
 		for {
 			n, err := conn.Read(buf)
 			if n == 0 {
-				this.BroadCast(user, "下线")
+				user.Offline()
 				return
 			}
 			if err != nil && err != io.EOF {
@@ -61,7 +55,7 @@ func (this *Server) hadle(conn net.Conn) {
 				return
 			}
 			msg := string(buf[:n-1])
-			this.BroadCast(user, msg)
+			user.DoMsg(msg)
 		}
 	}()
 	select {} //让当前协程 永久阻塞、不退出！让他发送完自己的上线也能继续听别人的上线
